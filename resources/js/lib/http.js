@@ -36,7 +36,15 @@ async function request(method, url, body) {
 
     // 204 No Content (hoặc thân rỗng)
     const text = await response.text();
-    const data = text ? JSON.parse(text) : null;
+    let data = null;
+
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch {
+            data = null; // thân phản hồi không phải JSON (vd. trang HTML của 419/500)
+        }
+    }
 
     if (!response.ok) {
         throw new HttpError(response.status, data);

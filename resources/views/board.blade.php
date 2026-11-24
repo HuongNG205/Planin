@@ -12,6 +12,11 @@
 
 @section('modals')
     @include('board.modal-workspace')
+    @if ($currentWorkspace)
+        @can('update', $currentWorkspace)
+            @include('board.modal-workspace-edit')
+        @endcan
+    @endif
     @include('board.modal-board')
 @endsection
 

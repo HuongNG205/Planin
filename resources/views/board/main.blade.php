@@ -44,9 +44,22 @@
             <div class="w-8 h-8 rounded-md bg-[#AA6ADA] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
               {{ mb_strtoupper(mb_substr($currentWorkspace->name ?? 'W', 0, 1, 'UTF-8'), 'UTF-8') }}
             </div>
-            <h1 class="text-base sm:text-lg font-bold text-[#091E42] tracking-tight">
-              {{ $currentWorkspace->name }}
-            </h1>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h1 class="text-base sm:text-lg font-bold text-[#091E42] tracking-tight">
+                  {{ $currentWorkspace->name }}
+                </h1>
+                <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                  {{ $currentWorkspace->visibility_label }}
+                </span>
+                <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-[#AA6ADA]">
+                  {{ $isOwner ? 'Chủ sở hữu' : ($currentRole?->label() ?? 'Thành viên') }}
+                </span>
+              </div>
+              @if ($currentWorkspace->description)
+                <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ $currentWorkspace->description }}</p>
+              @endif
+            </div>
           </div>
 
           <!-- Bên phải: Các nút tiện ích -->
@@ -70,13 +83,15 @@
               <span>Thành viên</span>
             </button>
 
-            <button type="button" class="flex items-center space-x-1.5 px-3 py-1.5 rounded hover:bg-gray-100 text-gray-700 text-xs font-medium transition cursor-pointer">
+            @can('update', $currentWorkspace)
+              <button type="button" onclick="openModal('editWorkspaceModal')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded hover:bg-gray-100 text-gray-700 text-xs font-medium transition cursor-pointer">
               <svg class="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               <span>Cài đặt</span>
             </button>
+            @endcan
           </div>
 
         </div>
@@ -114,6 +129,7 @@
             @endforeach
           @endif
 
+          @can('manageBoards', $currentWorkspace)
           <!-- Ô TẠO BẢNG MỚI -->
           <div
             onclick="openModal('createBoardModal')"
@@ -123,6 +139,7 @@
               Tạo bảng mới
             </span>
           </div>
+          @endcan
 
         </div>
 

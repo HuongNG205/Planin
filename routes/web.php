@@ -16,7 +16,7 @@ Route::get('/', function () {
     return view('home');
 })->name('home');
 
-// 2. Chỉ dành cho KHÁCH (đã đăng nhập thì middleware check.guest chuyển về /board)
+// 2. Chỉ dành cho KHÁCH (đã đăng nhập thì middleware check.guest chuyển về /workspaces)
 Route::middleware('check.guest')->group(function () {
     // Đăng nhập (AuthController / AuthService)
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -45,10 +45,19 @@ Route::middleware('check.login')->group(function () {
     Route::put('/account', [AccountController::class, 'update'])->name('account.update');
     Route::put('/account/password', [AccountController::class, 'updatePassword'])->name('account.password.update');
 
-    // Quản lý Workspace & Board (sẽ tách lại ở bước 4 và 6)
-    Route::get('/board', [WorkspaceController::class, 'index'])->name('workspaces.index');
-    Route::post('/workspaces', [WorkspaceController::class, 'storeWorkspace'])->name('workspaces.store');
-    Route::post('/boards', [WorkspaceController::class, 'storeBoard'])->name('boards.store');
+    // Workspace (bước 4). Quyền kiểm tra bằng WorkspacePolicy; {workspace} chỉ nhận số.
+    Route::pattern('workspace', '[0-9]+');
+    Route::controller(WorkspaceController::class)->group(function () {
+        Route::get('/workspaces', 'index')->name('workspaces.index');
+        Route::post('/workspaces', 'store')->name('workspaces.store');
+        Route::get('/workspaces/{workspace}', 'show')->name('workspaces.show');
+        Route::put('/workspaces/{workspace}', 'update')->name('workspaces.update');
+        Route::delete('/workspaces/{workspace}', 'destroy')->name('workspaces.destroy');
+        Route::post('/workspaces/{workspace}/leave', 'leave')->name('workspaces.leave');
+
+        // TẠM: tạo bảng, bước 6 chuyển sang BoardController.
+        Route::post('/boards', 'storeBoard')->name('boards.store');
+    });
 });
 
 // 4. Route thử hạ tầng - CHỈ môi trường local (kiểm tra layout/Vue/trang lỗi)
