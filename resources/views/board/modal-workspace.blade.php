@@ -34,6 +34,14 @@
         <form method="POST" action="{{ route('workspaces.store') }}" class="space-y-4">
           @csrf
 
+          @if ($errors->createWorkspace->any())
+            <div class="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700 space-y-0.5">
+              @foreach ($errors->createWorkspace->all() as $error)
+                <p>{{ $error }}</p>
+              @endforeach
+            </div>
+          @endif
+
           <!-- 1. Tên Không gian làm việc -->
           <div>
             <label class="block text-xs font-bold text-[#091E42] mb-1.5">
@@ -44,6 +52,8 @@
               id="workspaceNameInput"
               type="text"
               placeholder="Công ty của Taco"
+              value="{{ old('name') }}"
+              maxlength="150"
               oninput="updateWorkspaceSubmitButton()"
               class="w-full px-3.5 py-2.5 text-xs rounded-md border border-gray-300 focus:outline-none focus:border-[#AA6ADA] focus:ring-1 focus:ring-[#AA6ADA] bg-white transition text-gray-800"
               required
@@ -53,24 +63,19 @@
             </p>
           </div>
 
-          <!-- 2. Loại Không gian làm việc -->
+          <!-- 2. Quyền xem (mặc định: Riêng tư) -->
           <div>
             <label class="block text-xs font-bold text-[#091E42] mb-1.5">
-              Loại Không gian làm việc
+              Quyền xem
             </label>
             <div class="relative">
               <select
-                name="type"
+                name="visibility"
                 class="w-full px-3.5 py-2.5 text-xs rounded-md border border-gray-300 focus:outline-none focus:border-[#AA6ADA] focus:ring-1 focus:ring-[#AA6ADA] bg-white transition cursor-pointer text-gray-700 appearance-none pr-8"
               >
-                <option value="" disabled selected>Chọn...</option>
-                <option value="small-business">Doanh nghiệp nhỏ</option>
-                <option value="engineering">Kỹ thuật - CNTT</option>
-                <option value="marketing">Marketing</option>
-                <option value="education">Giáo dục</option>
-                <option value="hr">Nhân sự</option>
-                <option value="operations">Hoạt động</option>
-                <option value="other">Khác</option>
+                @foreach (\App\Enums\WorkspaceVisibility::options() as $value => $label)
+                  <option value="{{ $value }}" @selected(old('visibility', \App\Enums\WorkspaceVisibility::default()->value) === $value)>{{ $label }}</option>
+                @endforeach
               </select>
               <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-400">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -78,6 +83,9 @@
                 </svg>
               </div>
             </div>
+            <p class="text-[11px] text-gray-500 mt-1">
+              Riêng tư: chỉ thành viên được mời mới xem được. Bạn có thể đổi lại sau.
+            </p>
           </div>
 
           <!-- 3. Mô tả Không gian làm việc (Tùy chọn) -->
@@ -89,8 +97,9 @@
               name="description"
               rows="3"
               placeholder="Nhóm của chúng tôi tổ chức mọi thứ ở đây."
+              maxlength="1000"
               class="w-full px-3.5 py-2 text-xs rounded-md border border-gray-300 focus:outline-none focus:border-[#AA6ADA] focus:ring-1 focus:ring-[#AA6ADA] bg-white transition resize-none text-gray-800"
-            ></textarea>
+            >{{ old('description') }}</textarea>
             <p class="text-[11px] text-gray-500 mt-1">
               Đưa các thành viên của bạn vào bảng với mô tả ngắn về Không gian làm việc của bạn.
             </p>
@@ -132,3 +141,14 @@
   </div>
 </div>
 
+@if ($errors->createWorkspace->any())
+  @push('scripts')
+    <script>
+      // Có lỗi validate: mở lại modal tạo workspace và cập nhật trạng thái nút.
+      document.addEventListener('DOMContentLoaded', function () {
+        openModal('createWorkspaceModal');
+        updateWorkspaceSubmitButton();
+      });
+    </script>
+  @endpush
+@endif

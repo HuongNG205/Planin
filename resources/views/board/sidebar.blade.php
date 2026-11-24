@@ -6,7 +6,7 @@
   <!-- Menu trên: Bảng, Mẫu, Trang chủ -->
   <nav class="space-y-1.5 mb-6 text-sm">
     <a
-      href="#"
+      href="{{ route('workspaces.index') }}"
       class="flex items-center space-x-3 px-3.5 py-2.5 rounded-lg hover:bg-gray-100 transition cursor-pointer font-semibold text-gray-800"
     >
       <svg class="w-5 h-5 text-gray-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -15,15 +15,17 @@
       <span class="text-sm font-semibold">Bảng</span>
     </a>
 
-    <a
-      href="#"
-      class="flex items-center space-x-3 px-3.5 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition cursor-pointer font-semibold"
+    <div
+      class="flex items-center space-x-3 px-3.5 py-2.5 rounded-lg text-gray-400 cursor-not-allowed font-semibold"
+      title="Tính năng sẽ có trong thời gian tới"
+      aria-disabled="true"
     >
-      <svg class="w-5 h-5 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-5 h-5 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
       </svg>
       <span class="text-sm font-semibold">Mẫu</span>
-    </a>
+      <span class="ml-auto text-[10px] font-bold uppercase tracking-wide bg-gray-100 text-gray-400 rounded px-1.5 py-0.5">Sắp có</span>
+    </div>
 
     <a
       href="/"
@@ -95,7 +97,7 @@
 
           @foreach ($workspaces as $ws)
             <a
-              href="{{ route('workspaces.index', ['workspace_id' => $ws->id]) }}"
+              href="{{ route('workspaces.show', $ws) }}"
               class="flex items-center space-x-2.5 px-3 py-2.5 hover:bg-purple-50 cursor-pointer transition text-sm {{ ($currentWorkspace && $currentWorkspace->id === $ws->id) ? 'bg-purple-50 text-[#AA6ADA] font-bold' : 'text-gray-700' }}"
             >
               <div class="w-6 h-6 rounded bg-[#AA6ADA] text-white flex items-center justify-center text-xs font-bold shrink-0">
@@ -128,7 +130,7 @@
       <!-- Menu con của Workspace hiện tại -->
       <div class="space-y-1 pl-1 pt-1">
         <a
-          href="#"
+          href="{{ route('workspaces.show', $currentWorkspace) }}"
           class="flex items-center space-x-3 py-2.5 px-3.5 rounded-lg text-[#AA6ADA] font-semibold bg-purple-50 cursor-pointer text-sm"
         >
           <svg class="w-4 h-4 text-[#AA6ADA] shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -144,16 +146,38 @@
           <span>Thành viên</span>
         </div>
 
-        <a
-          href="#"
-          class="flex items-center space-x-3 py-2.5 px-3.5 rounded-lg text-gray-700 hover:bg-gray-100 transition cursor-pointer text-sm font-semibold"
-        >
-          <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        @can('update', $currentWorkspace)
+          <button
+            type="button"
+            onclick="openModal('editWorkspaceModal')"
+            class="w-full flex items-center space-x-3 py-2.5 px-3.5 rounded-lg text-gray-700 hover:bg-gray-100 transition cursor-pointer text-sm font-semibold"
+          >
+            <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <span>Cài đặt</span>
-        </a>
+            <span>Cài đặt</span>
+          </button>
+        @endcan
+
+        @can('leave', $currentWorkspace)
+          <form
+            method="POST"
+            action="{{ route('workspaces.leave', $currentWorkspace) }}"
+            onsubmit="return confirm('Bạn chắc chắn muốn rời khỏi không gian làm việc này? Bạn sẽ không còn truy cập được các bảng trong đó.');"
+          >
+            @csrf
+            <button
+              type="submit"
+              class="w-full flex items-center space-x-3 py-2.5 px-3.5 rounded-lg text-red-600 hover:bg-red-50 transition cursor-pointer text-sm font-semibold"
+            >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span>Rời khỏi</span>
+            </button>
+          </form>
+        @endcan
       </div>
 
       <!-- Nút Tạo Không gian làm việc dạng pill -->

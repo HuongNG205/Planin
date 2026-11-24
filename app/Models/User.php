@@ -4,8 +4,6 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use App\Support\PlaninEnum;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -86,6 +84,8 @@ class User extends Authenticatable
 
             return mb_strtoupper($initials, 'UTF-8');
         });
+    }
+    
     protected function roleLabel(): Attribute
     {
         return Attribute::get(fn () => PlaninEnum::label('user_role', $this->role));
@@ -116,5 +116,25 @@ class User extends Authenticatable
     public function starredBoards(): BelongsToMany
     {
         return $this->belongsToMany(Board::class, 'board_stars')->withTimestamps();
+    }
+
+    public function createdBoards(): HasMany
+    {
+        return $this->hasMany(Board::class, 'user_id');
+    }
+
+    public function createdTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'user_id');
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(Attachment::class);
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class);
     }
 }
