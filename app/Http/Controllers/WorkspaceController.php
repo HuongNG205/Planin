@@ -4,16 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreWorkspaceRequest;
 use App\Http\Requests\UpdateWorkspaceRequest;
+use App\Enums\BoardVisibility;
 use App\Models\Board;
 use App\Models\Workspace;
 use App\Services\WorkspaceService;
+use App\Support\BoardBackground;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * Workspace: index, show, store, update, destroy (+ leave).
+ * Workspace: index, show, store, update, destroy. (Thành viên/rời workspace: WorkspaceMemberController.)
  * Controller chỉ nhận Request đã validate/authorize và gọi WorkspaceService.
  * Danh sách luôn truy vấn theo workspace_members (kể cả workspace được mời).
  */
@@ -68,20 +71,6 @@ class WorkspaceController extends Controller
     }
 
     /**
-     * Thành viên (không phải chủ sở hữu) tự rời workspace.
-     * Bước 5 sẽ chuyển sang WorkspaceMemberController/MemberService cùng các thao tác thành viên khác.
-     */
-    public function leave(Request $request, Workspace $workspace): RedirectResponse
-    {
-        $this->authorize('leave', $workspace);
-
-        $this->workspaces->leave($workspace, $request->user());
-
-        return redirect()->route('workspaces.index')
-            ->with('success', 'Bạn đã rời khỏi Không gian làm việc "' . $workspace->name . '".');
-    }
-
-    /**
      * TẠM THỜI: tạo bảng. Bước 6 sẽ chuyển sang BoardController/BoardService/BoardPolicy.
      * Đã bỏ kiểm tra theo user_id của người tạo; quyền nay dựa vào vai trò trong workspace.
      */
@@ -90,8 +79,9 @@ class WorkspaceController extends Controller
         $validated = $request->validate([
             'workspace_id' => 'required|exists:workspaces,id',
             'name' => 'required|string|max:150',
-            'background' => 'nullable|string|max:255',
-            'visibility' => 'nullable|in:private,workspace,public',
+            // Chỉ nhận preset hoặc mã màu hợp lệ (chặn chèn CSS); không gửi = nền mặc định.
+            'background' => ['nullable', 'string', 'max:255', BoardBackground::rule()],
+            'visibility' => ['nullable', Rule::in(BoardVisibility::values())],
         ]);
 
         $workspace = Workspace::findOrFail($validated['workspace_id']);
@@ -102,8 +92,8 @@ class WorkspaceController extends Controller
             'workspace_id' => $workspace->id,
             'user_id' => $request->user()->id,
             'name' => $validated['name'],
-            'background' => $validated['background'] ?? 'linear-gradient(135deg, #0079BF, #5067C5)',
-            'visibility' => $validated['visibility'] ?? 'workspace',
+            'background' => $validated['background'] ?? BoardBackground::default(),
+            'visibility' => $validated['visibility'] ?? BoardVisibility::default()->value,
         ]);
 
         return redirect()->route('workspaces.show', $workspace)
@@ -119,15 +109,38 @@ class WorkspaceController extends Controller
     private function dashboard(Request $request, Collection $workspaces, ?Workspace $current): View
     {
         $user = $request->user();
+        $isMember = $current?->isMember($user) ?? false;
+        $members = collect();
 
-        // Chỉ nạp bảng của workspace đang xem (không nạp cho tất cả workspace).
-        $current?->loadMissing('boards');
+        if ($current && $isMember) {
+            // Chỉ nạp bảng của workspace đang xem (không nạp cho tất cả workspace).
+            $current->loadMissing('boards');
+            $members = $this->sortedMembers($current);
+        } elseif ($current) {
+            // Người ngoài xem workspace công khai: chỉ thấy các bảng công khai.
+            $current->setRelation(
+                'boards',
+                $current->boards()->where('visibility', BoardVisibility::Public->value)->get()
+            );
+        }
 
         return view('board', [
             'workspaces' => $workspaces,
             'currentWorkspace' => $current,
             'currentRole' => $current?->roleOf($user),
             'isOwner' => $current?->isOwnedBy($user) ?? false,
+            'isMember' => $isMember,
+            'members' => $members,
         ]);
+    }
+
+    /** Chủ sở hữu trước, rồi admin > member > viewer, cuối cùng theo tên. */
+    private function sortedMembers(Workspace $workspace): Collection
+    {
+        $order = ['admin' => 0, 'member' => 1, 'viewer' => 2];
+
+        return $workspace->members()->orderBy('users.name')->get()
+            ->sortBy(fn ($u) => [$workspace->isOwnedBy($u) ? 0 : 1, $order[$u->pivot->role] ?? 9])
+            ->values();
     }
 }

@@ -56,6 +56,16 @@ class Task extends Model
         return $query->whereNotNull('completed_at');
     }
 
+    /**
+     * Chỉ lấy thẻ mà cột VÀ bảng chứa nó chưa bị xóa mềm.
+     * Xóa mềm một bảng/cột không lan xuống thẻ, nên mọi truy vấn đi thẳng vào tasks
+     * (việc của tôi, tìm kiếm, assignedTasks...) phải dùng scope này.
+     */
+    public function scopeOnLiveBoard(Builder $query): Builder
+    {
+        return $query->whereHas('taskList.board');
+    }
+
     public function isCompleted(): bool
     {
         return $this->completed_at !== null;

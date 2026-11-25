@@ -18,7 +18,6 @@ return new class extends Migration
             $table->boolean('is_completed')->default(false);
             $table->integer('position')->default(0);
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['checklist_id', 'position']);
         });

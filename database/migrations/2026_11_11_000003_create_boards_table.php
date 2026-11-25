@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('boards', function (Blueprint $table) {
             $table->id();
             $table->foreignId('workspace_id')->constrained('workspaces')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade'); // Người tạo bảng
+            // Người tạo bảng. Xóa cứng user thì giữ lại bảng (không làm mất dữ liệu của workspace)
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('name', 150);
             // Lưu giá trị CSS (gradient/mã màu) nằm trong danh sách preset config/planin.php -> board_backgrounds
             $table->string('background', 255)->default('linear-gradient(135deg, #0079BF, #5067C5)');

@@ -139,12 +139,14 @@
           <span>Bảng</span>
         </a>
 
-        <div class="flex items-center space-x-3 py-2.5 px-3.5 rounded-lg text-gray-700 hover:bg-gray-100 transition cursor-pointer text-sm font-semibold">
+        @can('viewMembers', $currentWorkspace)
+        <button type="button" onclick="openModal('membersModal')" class="w-full flex items-center space-x-3 py-2.5 px-3.5 rounded-lg text-gray-700 hover:bg-gray-100 transition cursor-pointer text-sm font-semibold">
           <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
           </svg>
           <span>Thành viên</span>
-        </div>
+        </button>
+        @endcan
 
         @can('update', $currentWorkspace)
           <button

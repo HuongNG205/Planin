@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'check.login' => \App\Http\Middleware\CheckLogin::class,
             'check.guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
+            'workspace.member' => \App\Http\Middleware\EnsureWorkspaceMember::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

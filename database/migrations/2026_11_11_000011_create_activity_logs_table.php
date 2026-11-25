@@ -22,7 +22,6 @@ return new class extends Migration
             $table->string('description', 255)->nullable();
             $table->json('properties')->nullable(); // Dữ liệu chi tiết: cột cũ/mới, giá trị cũ/mới...
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['board_id', 'created_at']);
         });

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Board;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,7 +15,7 @@ class WorkspaceTest extends TestCase
     private function workspaceWithMember(string $role): array
     {
         $owner = User::factory()->create();
-        $workspace = Workspace::factory()->create(['user_id' => $owner->id]);
+        $workspace = Workspace::factory()->create(['user_id' => $owner->id, 'visibility' => 'private']);
         $workspace->members()->attach($owner->id, ['role' => 'admin']);
 
         $user = User::factory()->create();
@@ -97,5 +98,49 @@ class WorkspaceTest extends TestCase
         $this->actingAs($member)->post(route('boards.store'), $payload)->assertForbidden();
         $this->actingAs($owner)->post(route('boards.store'), $payload)->assertRedirect();
         $this->assertDatabaseHas('boards', ['workspace_id' => $workspace->id, 'name' => 'Bảng 1']);
+    }
+
+    public function test_stranger_can_view_public_workspace_with_public_boards_only(): void
+    {
+        [$owner, , $workspace] = $this->workspaceWithMember('member');
+        $workspace->update(['visibility' => 'public']);
+        Board::factory()->create(['workspace_id' => $workspace->id, 'user_id' => $owner->id, 'name' => 'Bảng công khai X', 'visibility' => 'public']);
+        Board::factory()->create(['workspace_id' => $workspace->id, 'user_id' => $owner->id, 'name' => 'Bảng nội bộ Y', 'visibility' => 'workspace']);
+        $stranger = User::factory()->create();
+
+        $this->actingAs($stranger)->get(route('workspaces.show', $workspace))
+            ->assertOk()
+            ->assertSee('Bảng công khai X')
+            ->assertDontSee('Bảng nội bộ Y');
+
+        // Công khai chỉ cho xem: không thao tác được.
+        $this->actingAs($stranger)->post(route('workspaces.leave', $workspace))->assertForbidden();
+        $this->actingAs($stranger)->put(route('workspaces.update', $workspace), ['name' => 'Hack', 'visibility' => 'private'])->assertForbidden();
+    }
+
+    public function test_board_background_must_be_preset_or_color(): void
+    {
+        [$owner, , $workspace] = $this->workspaceWithMember('member');
+
+        $this->actingAs($owner)->post(route('boards.store'), [
+            'workspace_id' => $workspace->id,
+            'name' => 'Bảng X',
+            'background' => 'red; position:fixed; inset:0',
+        ])->assertSessionHasErrors('background');
+
+        $this->assertDatabaseMissing('boards', ['name' => 'Bảng X']);
+    }
+
+    public function test_tasks_of_deleted_board_are_excluded_by_scope(): void
+    {
+        $board = Board::factory()->create();
+        $list = \App\Models\TaskList::factory()->create(['board_id' => $board->id]);
+        $task = \App\Models\Task::factory()->create(['task_list_id' => $list->id]);
+
+        $this->assertTrue(\App\Models\Task::onLiveBoard()->whereKey($task->id)->exists());
+
+        $board->delete(); // xóa mềm
+
+        $this->assertFalse(\App\Models\Task::onLiveBoard()->whereKey($task->id)->exists());
     }
 }
