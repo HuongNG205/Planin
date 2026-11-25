@@ -11,12 +11,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Khai báo alias middleware theo đúng kiến thức đã học
-        $middleware->alias([
-            'check.login' => \App\Http\Middleware\CheckLogin::class,
-            'check.guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
-            'workspace.member' => \App\Http\Middleware\EnsureWorkspaceMember::class,
-        ]);
+        //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
