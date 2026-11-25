@@ -11,14 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('task_labels', function (Blueprint $table) {
+        Schema::create('labels', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('task_id')->constrained('tasks')->onDelete('cascade');
-            $table->foreignId('label_id')->constrained('labels')->onDelete('cascade');
+            $table->foreignId('board_id')->constrained('boards')->onDelete('cascade'); // Nhãn theo bảng
+            $table->string('name', 50);
+            $table->string('color', 30)->default('#AA6ADA');
             $table->timestamps();
-            $table->softDeletes();
-
-            $table->unique(['task_id', 'label_id']);
         });
     }
 
@@ -27,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('task_labels');
+        Schema::dropIfExists('labels');
     }
 };

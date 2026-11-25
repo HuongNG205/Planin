@@ -55,11 +55,6 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
-    public function isMember(): bool
-    {
-        return $this->role === 'member';
-    }
-
     /** URL ảnh đại diện (cần `php artisan storage:link`), null nếu chưa có. */
     protected function avatarUrl(): Attribute
     {

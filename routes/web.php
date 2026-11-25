@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\WorkspaceController;
+use App\Http\Controllers\WorkspaceMemberController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -53,11 +54,21 @@ Route::middleware('check.login')->group(function () {
         Route::get('/workspaces/{workspace}', 'show')->name('workspaces.show');
         Route::put('/workspaces/{workspace}', 'update')->name('workspaces.update');
         Route::delete('/workspaces/{workspace}', 'destroy')->name('workspaces.destroy');
-        Route::post('/workspaces/{workspace}/leave', 'leave')->name('workspaces.leave');
 
         // TẠM: tạo bảng, bước 6 chuyển sang BoardController.
         Route::post('/boards', 'storeBoard')->name('boards.store');
     });
+
+    // Thành viên workspace (bước 5): phải là thành viên (middleware) + Policy kiểm tra vai trò.
+    Route::pattern('member', '[0-9]+');
+    Route::middleware('workspace.member')
+        ->controller(WorkspaceMemberController::class)
+        ->group(function () {
+            Route::post('/workspaces/{workspace}/members', 'store')->name('workspaces.members.store');
+            Route::put('/workspaces/{workspace}/members/{member}', 'update')->name('workspaces.members.update');
+            Route::delete('/workspaces/{workspace}/members/{member}', 'destroy')->name('workspaces.members.destroy');
+            Route::post('/workspaces/{workspace}/leave', 'leave')->name('workspaces.leave');
+        });
 });
 
 // 4. Route thử hạ tầng - CHỈ môi trường local (kiểm tra layout/Vue/trang lỗi)

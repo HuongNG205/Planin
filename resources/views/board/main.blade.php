@@ -53,7 +53,7 @@
                   {{ $currentWorkspace->visibility_label }}
                 </span>
                 <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-[#AA6ADA]">
-                  {{ $isOwner ? 'Chủ sở hữu' : ($currentRole?->label() ?? 'Thành viên') }}
+                  {{ $isOwner ? 'Chủ sở hữu' : ($currentRole?->label() ?? 'Khách (chỉ xem)') }}
                 </span>
               </div>
               @if ($currentWorkspace->description)
@@ -73,7 +73,8 @@
               <span>Bảng</span>
             </button>
 
-            <button type="button" class="flex items-center space-x-1.5 px-3 py-1.5 rounded hover:bg-gray-100 text-gray-700 text-xs font-medium transition cursor-pointer">
+            @can('viewMembers', $currentWorkspace)
+            <button type="button" onclick="openModal('membersModal')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded hover:bg-gray-100 text-gray-700 text-xs font-medium transition cursor-pointer">
               <svg class="w-3.5 h-3.5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
@@ -82,6 +83,7 @@
               </svg>
               <span>Thành viên</span>
             </button>
+            @endcan
 
             @can('update', $currentWorkspace)
               <button type="button" onclick="openModal('editWorkspaceModal')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded hover:bg-gray-100 text-gray-700 text-xs font-medium transition cursor-pointer">
@@ -99,7 +101,7 @@
         <!-- LƯỚI DANH SÁCH BẢNG -->
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
 
-          @if ($currentWorkspace->boards)
+          @if ($currentWorkspace->boards->isNotEmpty())
             @foreach ($currentWorkspace->boards as $board)
               <div
                 class="h-26 rounded-lg overflow-hidden border border-gray-200/80 hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between bg-white group hover:-translate-y-0.5"
@@ -107,7 +109,7 @@
                 <!-- Nửa trên (65%): Phông nền gradient/màu sắc -->
                 <div
                   class="flex-1 w-full relative transition"
-                  style="background: {{ $board->background ?: 'linear-gradient(135deg, #0079BF, #5067C5)' }};"
+                  style="background: {{ \App\Support\BoardBackground::css($board->background) }};"
                 >
                   <div class="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition"></div>
                   <div class="absolute bottom-1.5 right-2 opacity-0 group-hover:opacity-100 transition-opacity">

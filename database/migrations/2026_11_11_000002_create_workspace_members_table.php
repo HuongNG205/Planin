@@ -18,7 +18,6 @@ return new class extends Migration
             // Quyền trong workspace. Nhãn: config/planin.php -> enums.workspace_member_role
             $table->enum('role', ['admin', 'member', 'viewer'])->default('member');
             $table->timestamps();
-            $table->softDeletes();
 
             // Mỗi người chỉ tham gia 1 lần trong 1 workspace
             $table->unique(['workspace_id', 'user_id']);

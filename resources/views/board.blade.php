@@ -13,6 +13,9 @@
 @section('modals')
     @include('board.modal-workspace')
     @if ($currentWorkspace)
+        @can('viewMembers', $currentWorkspace)
+            @include('board.modal-members')
+        @endcan
         @can('update', $currentWorkspace)
             @include('board.modal-workspace-edit')
         @endcan

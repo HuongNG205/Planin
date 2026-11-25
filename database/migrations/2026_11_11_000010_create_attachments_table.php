@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('task_assignees', function (Blueprint $table) {
+        Schema::create('attachments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('task_id')->constrained('tasks')->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->string('file_name', 255);
+            $table->string('file_path', 255);
+            $table->unsignedInteger('file_size')->nullable(); // Dung lượng file, đơn vị KB
             $table->timestamps();
-            $table->softDeletes();
-
-            $table->unique(['task_id', 'user_id']);
         });
     }
 
@@ -27,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('task_assignees');
+        Schema::dropIfExists('attachments');
     }
 };

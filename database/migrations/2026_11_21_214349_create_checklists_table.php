@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('title', 150);
             $table->integer('position')->default(0);
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['task_id', 'position']);
         });

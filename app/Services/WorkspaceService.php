@@ -7,7 +7,6 @@ use App\Enums\WorkspaceVisibility;
 use App\Models\Board;
 use App\Models\User;
 use App\Models\Workspace;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -83,20 +82,5 @@ class WorkspaceService
 
             $workspace->delete();
         });
-    }
-
-    /**
-     * Thành viên tự rời workspace. Chủ sở hữu không được rời (chỉ có thể xóa workspace).
-     * Dùng detach() = xóa cứng dòng workspace_members.
-     *
-     * @throws AuthorizationException
-     */
-    public function leave(Workspace $workspace, User $user): void
-    {
-        if ($workspace->isOwnedBy($user)) {
-            throw new AuthorizationException('Chủ sở hữu không thể rời khỏi không gian làm việc của mình.');
-        }
-
-        $workspace->members()->detach($user->getKey());
     }
 }

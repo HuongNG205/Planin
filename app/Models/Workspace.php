@@ -55,6 +55,12 @@ class Workspace extends Model
         return $this->roleCache[$key];
     }
 
+    /** Gọi sau khi đổi/xóa thành viên trong cùng request để roleOf() không trả dữ liệu cũ. */
+    public function forgetRoleCache(): void
+    {
+        $this->roleCache = [];
+    }
+
     public function isMember(User $user): bool
     {
         return $this->roleOf($user) !== null;
