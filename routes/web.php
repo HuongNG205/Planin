@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BoardController;
+use App\Http\Controllers\BoardStarController;
 use App\Http\Controllers\WorkspaceController;
 use App\Http\Controllers\WorkspaceMemberController;
 use Illuminate\Support\Facades\Route;
@@ -54,10 +56,24 @@ Route::middleware('check.login')->group(function () {
         Route::get('/workspaces/{workspace}', 'show')->name('workspaces.show');
         Route::put('/workspaces/{workspace}', 'update')->name('workspaces.update');
         Route::delete('/workspaces/{workspace}', 'destroy')->name('workspaces.destroy');
-
-        // TẠM: tạo bảng, bước 6 chuyển sang BoardController.
-        Route::post('/boards', 'storeBoard')->name('boards.store');
     });
+
+    // Bảng (bước 6). Route lồng NÔNG: action cần workspace nằm dưới /workspaces/{workspace}/boards,
+    // action trên một bảng cụ thể nằm ở /boards/{board}. Quyền kiểm tra bằng BoardPolicy
+    // (trong FormRequest hoặc $this->authorize); {board} chỉ nhận số, bảng đã xóa mềm => 404.
+    Route::pattern('board', '[0-9]+');
+    Route::controller(BoardController::class)->group(function () {
+        Route::get('/workspaces/{workspace}/boards', 'index')->name('boards.index');
+        Route::get('/workspaces/{workspace}/boards/archived', 'archived')->name('boards.archived');
+        Route::post('/workspaces/{workspace}/boards', 'store')->name('boards.store');
+
+        Route::get('/boards/{board}', 'show')->name('boards.show');
+        Route::put('/boards/{board}', 'update')->name('boards.update');
+        Route::post('/boards/{board}/archive', 'archive')->name('boards.archive');
+        Route::post('/boards/{board}/restore', 'restore')->name('boards.restore');
+        Route::delete('/boards/{board}', 'destroy')->name('boards.destroy');
+    });
+    Route::post('/boards/{board}/star', BoardStarController::class)->name('boards.star');
 
     // Thành viên workspace (bước 5): phải là thành viên (middleware) + Policy kiểm tra vai trò.
     Route::pattern('member', '[0-9]+');

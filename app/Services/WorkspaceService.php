@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\WorkspaceRole;
 use App\Enums\WorkspaceVisibility;
-use App\Models\Board;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Database\Eloquent\Collection;
@@ -16,6 +15,10 @@ use Illuminate\Support\Facades\DB;
  */
 class WorkspaceService
 {
+    public function __construct(private readonly BoardService $boards)
+    {
+    }
+
     /**
      * Các workspace mà $user là THÀNH VIÊN (kể cả được mời), mới nhất trước.
      * Truy vấn qua workspace_members chứ không theo workspaces.user_id.
@@ -71,14 +74,13 @@ class WorkspaceService
     }
 
     /**
-     * Xóa mềm workspace cùng các bảng của nó, để bảng không còn truy cập được
-     * (bảng chỉ đi qua workspace).
+     * Xóa mềm workspace cùng các bảng của nó (kể cả bảng đã lưu trữ), để bảng không còn
+     * truy cập được. Việc xóa bảng do BoardService đảm nhiệm để vòng đời bảng nhất quán.
      */
     public function delete(Workspace $workspace): void
     {
         DB::transaction(function () use ($workspace) {
-            // Builder của model dùng SoftDeletes => đây là xóa mềm, kể cả bảng đã lưu trữ.
-            Board::where('workspace_id', $workspace->getKey())->delete();
+            $this->boards->deleteAllInWorkspace($workspace);
 
             $workspace->delete();
         });

@@ -4,26 +4,25 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreWorkspaceRequest;
 use App\Http\Requests\UpdateWorkspaceRequest;
-use App\Enums\BoardVisibility;
-use App\Models\Board;
 use App\Models\Workspace;
+use App\Services\BoardService;
 use App\Services\WorkspaceService;
-use App\Support\BoardBackground;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * Workspace: index, show, store, update, destroy. (Thành viên/rời workspace: WorkspaceMemberController.)
- * Controller chỉ nhận Request đã validate/authorize và gọi WorkspaceService.
+ * Workspace: index, show, store, update, destroy. (Thành viên/rời workspace: WorkspaceMemberController;
+ * bảng: BoardController.) Controller chỉ nhận Request đã validate/authorize và gọi WorkspaceService.
  * Danh sách luôn truy vấn theo workspace_members (kể cả workspace được mời).
  */
 class WorkspaceController extends Controller
 {
-    public function __construct(private readonly WorkspaceService $workspaces)
-    {
+    public function __construct(
+        private readonly WorkspaceService $workspaces,
+        private readonly BoardService $boards,
+    ) {
     }
 
     /** Trang làm việc: workspace mới nhất của người dùng (không có thì hiện trạng thái rỗng). */
@@ -71,36 +70,6 @@ class WorkspaceController extends Controller
     }
 
     /**
-     * TẠM THỜI: tạo bảng. Bước 6 sẽ chuyển sang BoardController/BoardService/BoardPolicy.
-     * Đã bỏ kiểm tra theo user_id của người tạo; quyền nay dựa vào vai trò trong workspace.
-     */
-    public function storeBoard(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'workspace_id' => 'required|exists:workspaces,id',
-            'name' => 'required|string|max:150',
-            // Chỉ nhận preset hoặc mã màu hợp lệ (chặn chèn CSS); không gửi = nền mặc định.
-            'background' => ['nullable', 'string', 'max:255', BoardBackground::rule()],
-            'visibility' => ['nullable', Rule::in(BoardVisibility::values())],
-        ]);
-
-        $workspace = Workspace::findOrFail($validated['workspace_id']);
-
-        $this->authorize('manageBoards', $workspace);
-
-        Board::create([
-            'workspace_id' => $workspace->id,
-            'user_id' => $request->user()->id,
-            'name' => $validated['name'],
-            'background' => $validated['background'] ?? BoardBackground::default(),
-            'visibility' => $validated['visibility'] ?? BoardVisibility::default()->value,
-        ]);
-
-        return redirect()->route('workspaces.show', $workspace)
-            ->with('success', 'Tạo bảng thành công!');
-    }
-
-    /**
      * Dữ liệu cho trang làm việc (view 'board'): sidebar cần danh sách workspace,
      * phần chính cần các bảng của workspace đang xem.
      *
@@ -109,28 +78,36 @@ class WorkspaceController extends Controller
     private function dashboard(Request $request, Collection $workspaces, ?Workspace $current): View
     {
         $user = $request->user();
-        $isMember = $current?->isMember($user) ?? false;
+        $role = $current?->roleOf($user);
+        $isMember = $role !== null;
         $members = collect();
+        $boards = collect();
+        $starredIds = [];
 
-        if ($current && $isMember) {
-            // Chỉ nạp bảng của workspace đang xem (không nạp cho tất cả workspace).
-            $current->loadMissing('boards');
-            $members = $this->sortedMembers($current);
-        } elseif ($current) {
-            // Người ngoài xem workspace công khai: chỉ thấy các bảng công khai.
-            $current->setRelation(
-                'boards',
-                $current->boards()->where('visibility', BoardVisibility::Public->value)->get()
-            );
+        if ($current) {
+            // Một truy vấn lọc theo quyền xem (Board::scopeVisibleTo) cho cả thành viên lẫn khách:
+            // admin thấy hết; member/viewer thấy bảng workspace/public + bảng riêng của mình;
+            // người ngoài (workspace công khai) chỉ thấy bảng public. Không gọi Policy từng bảng.
+            $boards = $current->boards()->visibleTo($user, $role)->get();
+            $current->setRelation('boards', $boards);
+            $starredIds = $this->boards->starredIdsAmong($user, $boards);
+
+            if ($isMember) {
+                $members = $this->sortedMembers($current);
+            }
         }
 
         return view('board', [
             'workspaces' => $workspaces,
             'currentWorkspace' => $current,
-            'currentRole' => $current?->roleOf($user),
+            'currentRole' => $role,
             'isOwner' => $current?->isOwnedBy($user) ?? false,
             'isMember' => $isMember,
             'members' => $members,
+            'starredBoardIds' => $starredIds,
+            // Sidebar: mục "Đã gắn sao" và "Gần đây".
+            'starredBoards' => $this->boards->starredFor($user),
+            'recentBoards' => $this->boards->recentFor($user),
         ]);
     }
 

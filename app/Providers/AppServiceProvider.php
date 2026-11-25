@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,6 +21,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Ngoài production: truy cập quan hệ chưa eager load trên một tập model sẽ ném
+        // LazyLoadingViolationException => phát hiện N+1 ngay khi phát triển.
+        // Production không bật để một lỗi sót không làm sập trang.
+        Model::preventLazyLoading(! $this->app->environment('production'));
     }
 }

@@ -13,7 +13,7 @@ use App\Models\Workspace;
  *   Người ngoài   : chỉ XEM workspace "công khai" (và các bảng công khai của nó)
  *   viewer        : xem
  *   member        : xem + thao tác cột/thẻ (editCards)
- *   admin         : member + quản lý bảng (manageBoards) + quản lý thành viên (manageMembers)
+ *   admin         : member + quản lý bảng (BoardPolicy) + quản lý thành viên (manageMembers)
  *   chủ sở hữu    : admin + sửa/xóa workspace (luôn là admin, không bị giáng/xóa)
  */
 class WorkspacePolicy
@@ -74,12 +74,6 @@ class WorkspacePolicy
     public function removeMember(User $user, Workspace $workspace, User $target): bool
     {
         return $this->manageMembers($user, $workspace) && ! $workspace->isOwnedBy($target);
-    }
-
-    /** Quản lý bảng (tạo/sửa/lưu trữ/xóa): admin. Bước 6 chuyển chi tiết sang BoardPolicy. */
-    public function manageBoards(User $user, Workspace $workspace): bool
-    {
-        return $workspace->roleOf($user)?->canManage() ?? false;
     }
 
     /** Thao tác cột/thẻ (thêm, sửa, kéo thả, bình luận): member trở lên. Dùng cho các Policy bước 8-12. */

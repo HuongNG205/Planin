@@ -43,9 +43,22 @@ class TaskList extends Model
         return $this->belongsTo(Board::class);
     }
 
+    /** TẤT CẢ thẻ của cột (kể cả đã lưu trữ), theo thứ tự. Khi hiển thị cột dùng activeTasks(). */
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class)->orderBy('position');
+    }
+
+    /** Các thẻ đang hoạt động (chưa lưu trữ), theo thứ tự: dùng cho trang kanban (bước 7). */
+    public function activeTasks(): HasMany
+    {
+        return $this->hasMany(Task::class)->whereNull('archived_at')->orderBy('position');
+    }
+
+    /** Các thẻ đã lưu trữ của cột (cho trang lưu trữ, bước 13). */
+    public function archivedTasks(): HasMany
+    {
+        return $this->hasMany(Task::class)->whereNotNull('archived_at')->orderBy('position');
     }
 
     public function activityLogs(): HasMany
