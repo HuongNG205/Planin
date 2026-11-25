@@ -83,6 +83,8 @@ class PlaninSeeder extends Seeder
                 'color' => '#AA6ADA',
                 'visibility' => 'private',
                 'owner' => $admin,
+                // Thêm 1 bảng đã lưu trữ để thử trang "Bảng đã lưu trữ" / khôi phục.
+                'archived_board' => true,
             ],
             [
                 'name' => 'Marketing & Truyền thông',
@@ -127,16 +129,32 @@ class PlaninSeeder extends Seeder
         $boardCount = random_int(2, 3);
         $boardNames = collect(self::BOARD_NAMES)->shuffle()->take($boardCount)->values();
 
+        // Quyền xem xoay vòng workspace -> private -> public để thử được cả 3 mức (BoardPolicy):
+        // member thường không thấy bảng 'private' do chủ workspace tạo.
+        $visibilities = ['workspace', 'private', 'public'];
+
         foreach ($boardNames as $index => $boardName) {
             $board = Board::factory()->create([
                 'workspace_id' => $workspace->id,
                 'user_id' => $owner->id,
                 'name' => $boardName,
+                'visibility' => $visibilities[$index % count($visibilities)],
             ]);
 
             $this->log($workspace, $owner, 'created', "đã tạo bảng \"{$board->name}\"", ['board_id' => $board->id]);
 
             $this->seedBoard($workspace, $board, $workers, $index === 0);
+        }
+
+        if ($spec['archived_board'] ?? false) {
+            $archived = Board::factory()->archived()->create([
+                'workspace_id' => $workspace->id,
+                'user_id' => $owner->id,
+                'name' => 'Dự án cũ (đã lưu trữ)',
+                'visibility' => 'workspace',
+            ]);
+
+            $this->seedBoard($workspace, $archived, $workers, false);
         }
     }
 

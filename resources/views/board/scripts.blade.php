@@ -19,7 +19,7 @@
     if (el) el.classList.toggle('hidden');
   }
 
-  // 3. Kiểm tra nút Submit khi nhập tên Workspace hoặc tên Bảng
+  // 3. Kiểm tra nút Submit khi nhập tên Workspace (tên Bảng: updateBoardSubmitButton bên dưới)
   function updateWorkspaceSubmitButton() {
     var input = document.getElementById('workspaceNameInput');
     var btn = document.getElementById('workspaceSubmitBtn');
@@ -32,10 +32,13 @@
     }
   }
 
-  function updateBoardSubmitButton() {
-    var input = document.getElementById('boardNameInput');
-    var btn = document.getElementById('boardSubmitBtn');
-    var msg = document.getElementById('boardNameRequiredMsg');
+  // Form bảng dùng chung cho modal TẠO (prefix 'createBoard') và modal SỬA (prefix 'editBoard');
+  // id phần tử = prefix + hậu tố (xem board/partials/board-form-fields.blade.php).
+  function updateBoardSubmitButton(prefix) {
+    var input = document.getElementById(prefix + 'NameInput');
+    var btn = document.getElementById(prefix + 'SubmitBtn');
+    var msg = document.getElementById(prefix + 'NameRequiredMsg');
+    if (!input || !btn) return;
     if (input.value.trim() !== '') {
       btn.disabled = false;
       btn.className = 'w-full py-2.5 rounded text-xs font-semibold transition cursor-pointer bg-[#AA6ADA] hover:bg-[#9252c4] text-white shadow-xs';
@@ -51,13 +54,14 @@
     }
   }
 
-  // 4. Chọn phông nền cho Bảng mới
-  function selectBoardBackground(clickedElement, bgStyle) {
-    document.getElementById('boardBackgroundInput').value = bgStyle;
-    document.getElementById('boardPreviewBox').style.background = bgStyle;
+  // 4. Chọn phông nền cho bảng. Giá trị nằm ở data-bg; server vẫn kiểm tra lại (BoardBackground::rule()).
+  function selectBoardBackground(clickedElement, prefix) {
+    var bgStyle = clickedElement.dataset.bg;
+    document.getElementById(prefix + 'BackgroundInput').value = bgStyle;
+    document.getElementById(prefix + 'PreviewBox').style.background = bgStyle;
 
-    var allOptions = document.querySelectorAll('.bg-picker-opt');
-    allOptions.forEach(function(opt) {
+    var form = document.getElementById(prefix + 'Form');
+    form.querySelectorAll('.bg-picker-opt').forEach(function(opt) {
       opt.classList.remove('border-gray-900', 'ring-2', 'ring-purple-400');
       opt.classList.add('border-transparent');
       var check = opt.querySelector('.check-icon');
@@ -71,18 +75,17 @@
   }
 
   // 5. Chọn quyền xem bảng (Riêng tư / Không gian làm việc / Công khai)
-  function selectBoardVisibility(visibilityValue, visibilityLabel, clickedOption) {
-    document.getElementById('boardVisibilityInput').value = visibilityValue;
-    document.getElementById('currentVisibilityText').innerText = visibilityLabel;
+  function selectBoardVisibility(prefix, visibilityValue, clickedOption) {
+    document.getElementById(prefix + 'VisibilityInput').value = visibilityValue;
+    document.getElementById(prefix + 'CurrentVisibilityText').innerText = clickedOption.dataset.label;
 
     ['private', 'workspace', 'public'].forEach(function(type) {
-      var iconEl = document.getElementById('visibilityIcon_' + type);
-      if (iconEl) iconEl.classList.add('hidden');
+      var iconEl = document.getElementById(prefix + 'VisIcon_' + type);
+      if (iconEl) iconEl.classList.toggle('hidden', type !== visibilityValue);
     });
-    var activeIcon = document.getElementById('visibilityIcon_' + visibilityValue);
-    if (activeIcon) activeIcon.classList.remove('hidden');
 
-    document.querySelectorAll('.vis-option').forEach(function(opt) {
+    var dropdown = document.getElementById(prefix + 'VisibilityDropdown');
+    dropdown.querySelectorAll('.vis-option').forEach(function(opt) {
       opt.classList.remove('bg-purple-50', 'text-[#AA6ADA]');
       opt.classList.add('text-gray-800');
       var svg = opt.querySelector('.vis-svg');
@@ -91,24 +94,21 @@
         svg.classList.add('text-gray-700');
       }
     });
-    if (clickedOption) {
-      clickedOption.classList.remove('text-gray-800');
-      clickedOption.classList.add('bg-purple-50', 'text-[#AA6ADA]');
-      var activeSvg = clickedOption.querySelector('.vis-svg');
-      if (activeSvg) {
-        activeSvg.classList.remove('text-gray-700');
-        activeSvg.classList.add('text-[#AA6ADA]');
-      }
+    clickedOption.classList.remove('text-gray-800');
+    clickedOption.classList.add('bg-purple-50', 'text-[#AA6ADA]');
+    var activeSvg = clickedOption.querySelector('.vis-svg');
+    if (activeSvg) {
+      activeSvg.classList.remove('text-gray-700');
+      activeSvg.classList.add('text-[#AA6ADA]');
     }
 
-    closeModal('boardVisibilityDropdown');
+    dropdown.classList.add('hidden');
   }
 
   // 6. Đóng dropdown khi click ra ngoài màn hình
   document.addEventListener('click', function(e) {
     var userMenu = document.getElementById('userMenuDropdown');
     var wsSelect = document.getElementById('workspaceSelectDropdown');
-    var visSelect = document.getElementById('boardVisibilityDropdown');
 
     if (userMenu && !userMenu.contains(e.target) && !e.target.closest('[onclick*="userMenuDropdown"]')) {
       userMenu.classList.add('hidden');
@@ -116,9 +116,18 @@
     if (wsSelect && !wsSelect.contains(e.target) && !e.target.closest('[onclick*="workspaceSelectDropdown"]')) {
       wsSelect.classList.add('hidden');
     }
-    if (visSelect && !visSelect.contains(e.target) && !e.target.closest('[onclick*="boardVisibilityDropdown"]')) {
-      visSelect.classList.add('hidden');
-    }
+    // Menu quyền xem của các form bảng (createBoard / editBoard)
+    document.querySelectorAll('.board-vis-dropdown').forEach(function(dd) {
+      if (!dd.contains(e.target) && !e.target.closest('[onclick*="' + dd.id + '"]')) {
+        dd.classList.add('hidden');
+      }
+    });
+  });
+
+  // 7. Đặt trạng thái ban đầu của nút gửi cho các form bảng có trên trang
+  //    (form sửa đã có sẵn tên => nút bật; form tạo trống => nút khóa).
+  ['createBoard', 'editBoard'].forEach(function(prefix) {
+    if (document.getElementById(prefix + 'NameInput')) updateBoardSubmitButton(prefix);
   });
 </script>
 

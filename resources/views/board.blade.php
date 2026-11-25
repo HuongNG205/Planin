@@ -20,7 +20,11 @@
             @include('board.modal-workspace-edit')
         @endcan
     @endif
-    @include('board.modal-board')
+    @if ($currentWorkspace)
+        @can('create', [\App\Models\Board::class, $currentWorkspace])
+            @include('board.modal-board')
+        @endcan
+    @endif
 @endsection
 
 {{-- JavaScript xử lý Modal và Dropdown --}}
