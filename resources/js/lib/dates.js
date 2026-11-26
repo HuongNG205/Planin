@@ -28,3 +28,16 @@ export function dueInfo(task, now = new Date()) {
 
     return { label, title: `Hạn chót: ${full}${suffix}`, status };
 }
+
+/**
+ * Đổi ISO 8601 thành 'YYYY-MM-DDTHH:mm' (theo giờ trình duyệt) để điền vào <input type="datetime-local">.
+ * Giá trị này cũng là định dạng server nhận ở due_date (xem UpdateTaskRequest). Rỗng/không hợp lệ -> ''.
+ */
+export function toInputValue(iso) {
+    if (!iso) return '';
+
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}

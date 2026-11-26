@@ -1,9 +1,11 @@
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import AddCardForm from '@/components/AddCardForm.vue';
 import TaskCard from '@/components/TaskCard.vue';
 
 // Một cột: tiêu đề + số thẻ + danh sách thẻ (cuộn dọc trong cột).
-// Người có quyền sửa (canEdit) thêm được: bấm tên để đổi tại chỗ, menu "..." để lưu trữ/xóa.
+// Người có quyền sửa (canEdit) thêm được: bấm tên để đổi tại chỗ, menu "..." để lưu trữ/xóa, ô "Thêm thẻ" cuối cột.
+// Bấm một thẻ để mở modal chi tiết (ai xem được bảng cũng mở được).
 const props = defineProps({
     list: { type: Object, required: true },
 });
@@ -13,6 +15,17 @@ const permissions = inject('boardPermissions', { canEdit: computed(() => false) 
 const canEdit = permissions.canEdit;
 const lists = inject('boardLists', null);
 const notify = inject('notify', () => {});
+const taskActions = inject('boardTasks', null);
+const openTask = inject('openTask', () => {});
+
+// ---------- Thẻ ----------
+const cardList = ref(null);
+
+// Thêm thẻ xong thì cuộn xuống cuối cột để thấy thẻ mới.
+async function scrollCardsToEnd() {
+    await nextTick();
+    cardList.value?.scrollTo?.({ top: cardList.value.scrollHeight, behavior: 'smooth' });
+}
 
 // ---------- Đổi tên tại chỗ ----------
 const editing = ref(false);
@@ -216,11 +229,17 @@ const remove = () => runMenuAction(lists.deleteList);
             </div>
         </header>
 
-        <ul v-if="list.tasks.length" class="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2 [scrollbar-width:thin]">
+        <ul
+            v-if="list.tasks.length"
+            ref="cardList"
+            class="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2 [scrollbar-width:thin]"
+        >
             <li v-for="task in list.tasks" :key="task.id">
-                <TaskCard :task="task" />
+                <TaskCard :task="task" @open="openTask(task.id)" />
             </li>
         </ul>
-        <p v-else class="px-3 pb-4 text-xs text-gray-400">Chưa có thẻ nào</p>
+        <p v-else class="px-3 pb-3 text-xs text-gray-400">Chưa có thẻ nào</p>
+
+        <AddCardForm v-if="canEdit && taskActions" :list="list" @added="scrollCardsToEnd" />
     </section>
 </template>
