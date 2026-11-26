@@ -1,6 +1,8 @@
 <script setup>
-import { computed, provide } from 'vue';
+import { computed, nextTick, onBeforeUnmount, provide, ref } from 'vue';
+import AddListForm from '@/components/AddListForm.vue';
 import ListColumn from '@/components/ListColumn.vue';
+import { useBoardLists } from '@/composables/useBoardLists';
 
 // Props do BoardController@show truyền qua <x-vue-mount> (xem BoardService::kanbanProps).
 // Phải khai báo đủ: prop không khai báo sẽ bị gắn thành thuộc tính HTML của phần tử gốc (vd. role="admin").
@@ -8,28 +10,72 @@ const props = defineProps({
     board: { type: Object, required: true },
     // 'admin' | 'member' | 'viewer' | null (null = khách xem bảng public)
     role: { type: String, default: null },
-    // true chỉ khi người xem là member trở lên và bảng chưa lưu trữ
+    // Do BoardPolicy::editCards quyết định: member trở lên, xem được bảng, bảng chưa lưu trữ.
+    // Chỉ để ẩn/hiện nút; mọi thao tác vẫn được server kiểm tra lại bằng Policy.
     canEdit: { type: Boolean, default: false },
     lists: { type: Array, default: () => [] },
 });
 
-// Component con (bước 8-11: thêm cột/thẻ, menu, nhãn...) inject để ẩn nút sửa với viewer/khách:
-//   const permissions = inject('boardPermissions');  // permissions.canEdit
+// Cột đang hiển thị + thao tác (thêm, đổi tên, lưu trữ, xóa) gọi backend không tải lại trang.
+const { columns, createList, renameList, archiveList, deleteList } = useBoardLists(props.board.id, props.lists);
+
+// Component con inject để ẩn nút sửa với viewer/khách mà không phải truyền props xuyên nhiều tầng:
+//   const permissions = inject('boardPermissions');  // permissions.canEdit (ref)
+//   const lists = inject('boardLists');              // createList, renameList, archiveList, deleteList
+//   const notify = inject('notify');                 // notify('Nội dung lỗi') => thông báo nổi
 provide('boardPermissions', {
     role: computed(() => props.role),
     canEdit: computed(() => props.canEdit),
 });
+provide('boardLists', { createList, renameList, archiveList, deleteList });
+
+// Thông báo nổi (lỗi thao tác nền), tự tắt sau 6 giây.
+const toast = ref('');
+let toastTimer = null;
+
+function notify(message) {
+    toast.value = message;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (toast.value = ''), 6000);
+}
+
+provide('notify', notify);
+onBeforeUnmount(() => clearTimeout(toastTimer));
+
+// Thêm cột xong thì cuộn sang phải để thấy cột mới.
+const scroller = ref(null);
+
+async function scrollToEnd() {
+    await nextTick();
+    scroller.value?.scrollTo?.({ left: scroller.value.scrollWidth, behavior: 'smooth' });
+}
 </script>
 
 <template>
-    <div class="flex h-full items-start gap-3 overflow-x-auto overflow-y-hidden p-4 sm:p-6 [scrollbar-width:thin]">
-        <ListColumn v-for="list in lists" :key="list.id" :list="list" />
+    <div
+        ref="scroller"
+        class="flex h-full items-start gap-3 overflow-x-auto overflow-y-hidden p-4 sm:p-6 [scrollbar-width:thin]"
+    >
+        <ListColumn v-for="list in columns" :key="list.id" :list="list" />
 
         <p
-            v-if="!lists.length"
+            v-if="!columns.length"
             class="rounded-lg bg-white/80 px-4 py-3 text-sm text-gray-700 shadow-2xs backdrop-blur-sm"
         >
             Bảng này chưa có cột nào.
         </p>
+
+        <AddListForm v-if="canEdit" @added="scrollToEnd" />
+
+        <div
+            v-if="toast"
+            role="alert"
+            class="fixed bottom-4 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-start gap-3 rounded-lg bg-red-600 px-4 py-3 text-sm text-white shadow-lg"
+        >
+            <span>{{ toast }}</span>
+            <button type="button" class="shrink-0 font-bold leading-none" aria-label="Đóng thông báo" @click="toast = ''">
+                &times;
+            </button>
+        </div>
     </div>
 </template>

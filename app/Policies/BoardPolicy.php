@@ -21,7 +21,9 @@ use App\Models\Workspace;
  *   - sửa và lưu trữ chỉ áp dụng cho bảng chưa lưu trữ; khôi phục chỉ cho bảng đã lưu trữ.
  * GẮN SAO: ai xem được bảng (và bảng chưa lưu trữ).
  *
- * Quyền thao tác cột/thẻ (member trở lên) thuộc các Policy bước 8-12, không nằm ở đây.
+ * SỬA CỘT/THẺ (editCards): member trở lên của workspace VÀ xem được bảng VÀ bảng chưa lưu trữ. Đây là điều kiện
+ * CHUNG cho mọi thao tác nền trên bảng; TaskListPolicy (bước 8), TaskPolicy (bước 9)... đều gọi lại hàm này
+ * thay vì tự viết lại, để quy tắc không bị lệch. Viewer và khách xem bảng public luôn bị từ chối.
  *
  * Phải khớp với Board::scopeVisibleTo()/scopeAccessibleBy() (lọc danh sách); có test đối chiếu.
  */
@@ -86,6 +88,17 @@ class BoardPolicy
     public function star(User $user, Board $board): bool
     {
         return ! $board->isArchived() && $this->view($user, $board);
+    }
+
+    /**
+     * Thao tác cột/thẻ trên bảng: member trở lên, xem được bảng (vd. thành viên không thấy bảng private của
+     * người khác thì cũng không sửa được), và bảng chưa lưu trữ. Gọi bằng can('editCards', $board).
+     */
+    public function editCards(User $user, Board $board): bool
+    {
+        return ! $board->isArchived()
+            && $this->view($user, $board)
+            && ($board->workspace?->roleOf($user)?->canEditCards() ?? false);
     }
 
     /** admin của workspace chứa bảng (workspace xóa mềm => false). */

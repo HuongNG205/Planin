@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\BoardStarController;
+use App\Http\Controllers\TaskListController;
 use App\Http\Controllers\WorkspaceController;
 use App\Http\Controllers\WorkspaceMemberController;
 use Illuminate\Support\Facades\Route;
@@ -74,6 +75,17 @@ Route::middleware('check.login')->group(function () {
         Route::delete('/boards/{board}', 'destroy')->name('boards.destroy');
     });
     Route::post('/boards/{board}/star', BoardStarController::class)->name('boards.star');
+
+    // Cột (bước 8): thao tác nền do Vue gọi (JSON/204). Thêm cột nằm dưới /boards/{board}, thao tác
+    // trên một cột nằm ở /lists/{list}. Quyền kiểm tra bằng TaskListPolicy; {list} chỉ nhận số,
+    // cột đã xóa mềm => 404.
+    Route::pattern('list', '[0-9]+');
+    Route::controller(TaskListController::class)->group(function () {
+        Route::post('/boards/{board}/lists', 'store')->name('lists.store');
+        Route::put('/lists/{list}', 'update')->name('lists.update');
+        Route::post('/lists/{list}/archive', 'archive')->name('lists.archive');
+        Route::delete('/lists/{list}', 'destroy')->name('lists.destroy');
+    });
 
     // Thành viên workspace (bước 5): phải là thành viên (middleware) + Policy kiểm tra vai trò.
     Route::pattern('member', '[0-9]+');

@@ -72,14 +72,16 @@ class BoardController extends Controller
         $this->boards->recordRecent($board);
         $this->boards->loadKanban($board);
 
-        // Vai trò của người xem (null = khách xem bảng public) để Vue ẩn nút sửa với viewer/khách.
-        $role = $board->workspace->roleOf($request->user());
+        // Vai trò của người xem (null = khách xem bảng public) và quyền sửa cột/thẻ, để Vue ẩn nút sửa
+        // với viewer/khách. Quyền sửa lấy từ BoardPolicy::editCards (cùng quy tắc với Policy của cột/thẻ).
+        $user = $request->user();
+        $role = $board->workspace->roleOf($user);
 
         return view('boards.show', [
             'board' => $board,
             'workspace' => $board->workspace,
-            'isStarred' => $this->boards->isStarredBy($board, $request->user()),
-            'kanbanProps' => $this->boards->kanbanProps($board, $role),
+            'isStarred' => $this->boards->isStarredBy($board, $user),
+            'kanbanProps' => $this->boards->kanbanProps($board, $role, $user->can('editCards', $board)),
         ]);
     }
 
