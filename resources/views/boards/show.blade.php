@@ -1,7 +1,8 @@
 {{--
-    TRANG BẢNG (boards.show). Hiện mới là KHUNG: tiêu đề, phông nền, quyền xem, nút gắn sao/sửa.
-    Cột và thẻ (Vue) sẽ gắn vào vùng #board-canvas ở bước 7.
-    Biến: $board (đã load workspace, user), $workspace, $isStarred.
+    TRANG BẢNG (boards.show): tiêu đề, phông nền, quyền xem, nút gắn sao/sửa + cột và thẻ.
+    Cột và thẻ do Vue (pages/BoardPage.vue) hiển thị trong vùng #board-canvas, dữ liệu truyền qua props.
+    Biến: $board (đã load workspace, user, cột/thẻ), $workspace, $isStarred,
+          $kanbanProps (mảng: board, role, canEdit, lists - xem BoardService::kanbanProps).
 --}}
 @extends('layouts.board')
 
@@ -77,11 +78,10 @@
       </div>
     @endif
 
-    <!-- VÙNG CỘT VÀ THẺ (bước 7 sẽ mount Vue ở đây) -->
-    <div id="board-canvas" class="flex-1 min-h-0 overflow-x-auto p-4 sm:p-6">
-      <div class="inline-block rounded-lg bg-white/80 backdrop-blur-sm px-4 py-3 text-sm text-gray-700 shadow-2xs">
-        Khung bảng đã sẵn sàng. Các cột và thẻ sẽ hiển thị tại đây.
-      </div>
+    <!-- VÙNG CỘT VÀ THẺ: Vue mount vào #board-app (đăng ký trong resources/js/app.js).
+         Vùng mount phủ kín #board-canvas (absolute inset-0); cuộn ngang/dọc do BoardPage xử lý. -->
+    <div id="board-canvas" class="relative flex-1 min-h-0">
+      <x-vue-mount id="board-app" class="absolute inset-0" :payload="$kanbanProps" />
     </div>
 
   </div>

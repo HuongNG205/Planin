@@ -59,7 +59,8 @@ class BoardController extends Controller
     }
 
     /**
-     * Trang bảng. Hiện mới là KHUNG (tiêu đề, nền, thao tác quản lý); cột và thẻ làm ở bước 7.
+     * Trang bảng kanban: khung (tiêu đề, nền, thao tác quản lý) + cột và thẻ hiển thị bằng Vue.
+     * Cột/thẻ đang hoạt động được eager load một lần rồi truyền xuống Vue qua props (không gọi API).
      */
     public function show(Request $request, Board $board): View
     {
@@ -69,11 +70,16 @@ class BoardController extends Controller
         $board->loadMissing(['workspace', 'user']);
 
         $this->boards->recordRecent($board);
+        $this->boards->loadKanban($board);
+
+        // Vai trò của người xem (null = khách xem bảng public) để Vue ẩn nút sửa với viewer/khách.
+        $role = $board->workspace->roleOf($request->user());
 
         return view('boards.show', [
             'board' => $board,
             'workspace' => $board->workspace,
             'isStarred' => $this->boards->isStarredBy($board, $request->user()),
+            'kanbanProps' => $this->boards->kanbanProps($board, $role),
         ]);
     }
 
