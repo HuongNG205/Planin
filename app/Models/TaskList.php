@@ -38,6 +38,11 @@ class TaskList extends Model
         return $query->whereNotNull('archived_at');
     }
 
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
     public function board(): BelongsTo
     {
         return $this->belongsTo(Board::class);

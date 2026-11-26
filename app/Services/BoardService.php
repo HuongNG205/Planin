@@ -5,11 +5,11 @@ namespace App\Services;
 use App\Enums\BoardVisibility;
 use App\Enums\WorkspaceRole;
 use App\Models\Board;
-use App\Models\Task;
 use App\Models\TaskList;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\BoardBackground;
+use App\Support\KanbanPayload;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -119,15 +119,16 @@ class BoardService
 
     /**
      * Dữ liệu truyền xuống Vue (BoardPage) qua <x-vue-mount>. Gọi SAU loadKanban().
+     * Hình dạng cột/thẻ do KanbanPayload định nghĩa (chỉ trường hiển thị, không email/mô tả).
      *
-     * Chỉ đưa vào các trường để hiển thị: KHÔNG có email người dùng và KHÔNG có mô tả thẻ, vì bảng
-     * 'public' xem được bởi mọi người đã đăng nhập. Ngày giờ là chuỗi ISO 8601 (kèm múi giờ).
-     *
-     * @param  ?WorkspaceRole  $role  vai trò của người xem trong workspace; null = không phải thành viên
-     *                                (khách xem bảng public)
+     * @param  ?WorkspaceRole  $role     vai trò của người xem trong workspace; null = không phải thành viên
+     *                                   (khách xem bảng public)
+     * @param  bool            $canEdit  người xem có sửa được cột/thẻ không. Do BoardPolicy::editCards quyết
+     *                                   định (một nguồn duy nhất, cùng quy tắc với TaskListPolicy...) nên
+     *                                   Controller tính rồi truyền vào; Vue chỉ dùng để ẩn/hiện nút.
      * @return array<string, mixed>
      */
-    public function kanbanProps(Board $board, ?WorkspaceRole $role): array
+    public function kanbanProps(Board $board, ?WorkspaceRole $role, bool $canEdit): array
     {
         return [
             'board' => [
@@ -136,52 +137,11 @@ class BoardService
                 'archived' => $board->isArchived(),
             ],
             'role' => $role?->value,
-            // Chỉ member trở lên mới sửa được cột/thẻ, và không ai sửa được khi bảng đã lưu trữ.
-            // Viewer và khách xem bảng public (role = null) chỉ đọc => Vue ẩn các nút sửa.
-            'canEdit' => ! $board->isArchived() && ($role?->canEditCards() ?? false),
+            'canEdit' => $canEdit,
             'lists' => $board->activeTaskLists
-                ->map(fn (TaskList $list) => [
-                    'id' => $list->getKey(),
-                    'name' => $list->name,
-                    'position' => $list->position,
-                    'tasks' => $list->activeTasks
-                        ->map(fn (Task $task) => $this->kanbanTask($task))
-                        ->values()
-                        ->all(),
-                ])
+                ->map(fn (TaskList $list) => KanbanPayload::list($list))
                 ->values()
                 ->all(),
-        ];
-    }
-
-    /** @return array<string, mixed> */
-    private function kanbanTask(Task $task): array
-    {
-        return [
-            'id' => $task->getKey(),
-            'title' => $task->title,
-            'position' => $task->position,
-            'due_date' => $task->due_date?->toIso8601String(),
-            'completed_at' => $task->completed_at?->toIso8601String(),
-            'labels' => $task->labels
-                ->map(fn ($label) => [
-                    'id' => $label->getKey(),
-                    'name' => $label->name,
-                    'color' => $label->color,
-                ])
-                ->values()
-                ->all(),
-            'assignees' => $task->assignees
-                ->map(fn (User $user) => [
-                    'id' => $user->getKey(),
-                    'name' => $user->name,
-                    'initials' => $user->initials,
-                    'avatar_url' => $user->avatar_url,
-                ])
-                ->values()
-                ->all(),
-            'comments_count' => (int) $task->comments_count,
-            'attachments_count' => (int) $task->attachments_count,
         ];
     }
 
