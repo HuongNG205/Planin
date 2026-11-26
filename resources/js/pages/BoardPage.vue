@@ -2,7 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, provide, ref } from 'vue';
 import AddListForm from '@/components/AddListForm.vue';
 import ListColumn from '@/components/ListColumn.vue';
+import TaskModal from '@/components/TaskModal.vue';
 import { useBoardLists } from '@/composables/useBoardLists';
+import { useBoardTasks } from '@/composables/useBoardTasks';
 
 // Props do BoardController@show truyền qua <x-vue-mount> (xem BoardService::kanbanProps).
 // Phải khai báo đủ: prop không khai báo sẽ bị gắn thành thuộc tính HTML của phần tử gốc (vd. role="admin").
@@ -19,15 +21,37 @@ const props = defineProps({
 // Cột đang hiển thị + thao tác (thêm, đổi tên, lưu trữ, xóa) gọi backend không tải lại trang.
 const { columns, createList, renameList, archiveList, deleteList } = useBoardLists(props.board.id, props.lists);
 
+// Thao tác thẻ (thêm, xem chi tiết, sửa, lưu trữ, xóa) trên cùng danh sách cột.
+const { createTask, loadTask, updateTask, archiveTask, deleteTask } = useBoardTasks(columns);
+
 // Component con inject để ẩn nút sửa với viewer/khách mà không phải truyền props xuyên nhiều tầng:
 //   const permissions = inject('boardPermissions');  // permissions.canEdit (ref)
 //   const lists = inject('boardLists');              // createList, renameList, archiveList, deleteList
+//   const tasks = inject('boardTasks');              // createTask, loadTask, updateTask, archiveTask, deleteTask
+//   const openTask = inject('openTask');             // openTask(taskId) => mở modal chi tiết thẻ
 //   const notify = inject('notify');                 // notify('Nội dung lỗi') => thông báo nổi
 provide('boardPermissions', {
     role: computed(() => props.role),
     canEdit: computed(() => props.canEdit),
 });
 provide('boardLists', { createList, renameList, archiveList, deleteList });
+provide('boardTasks', { createTask, loadTask, updateTask, archiveTask, deleteTask });
+
+// Thẻ đang mở trong modal. Tìm theo id trong columns: thẻ bị lưu trữ/xóa (kể cả cả cột bị gỡ) thì
+// activeTask thành null và modal tự đóng.
+const openTaskId = ref(null);
+const activeTask = computed(() => {
+    if (openTaskId.value === null) return null;
+    for (const list of columns.value) {
+        const task = list.tasks.find((item) => item.id === openTaskId.value);
+        if (task) return task;
+    }
+    return null;
+});
+
+provide('openTask', (taskId) => {
+    openTaskId.value = taskId;
+});
 
 // Thông báo nổi (lỗi thao tác nền), tự tắt sau 6 giây.
 const toast = ref('');
@@ -66,6 +90,8 @@ async function scrollToEnd() {
         </p>
 
         <AddListForm v-if="canEdit" @added="scrollToEnd" />
+
+        <TaskModal v-if="activeTask" :key="activeTask.id" :task="activeTask" @close="openTaskId = null" />
 
         <div
             v-if="toast"

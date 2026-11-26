@@ -4,10 +4,12 @@ import UserAvatar from '@/components/UserAvatar.vue';
 import { dueInfo } from '@/lib/dates';
 import { readableTextColor } from '@/lib/colors';
 
-// Thẻ chỉ để HIỂN THỊ (chưa kéo thả, chưa mở chi tiết). Nội dung luôn in bằng {{ }} (đã escape).
+// Thẻ hiển thị trên bảng (chưa kéo thả). Bấm, hoặc Enter/Space khi đang chọn thẻ, để mở chi tiết:
+// phát sự kiện 'open', ListColumn xử lý. Nội dung luôn in bằng {{ }} (đã escape).
 const props = defineProps({
     task: { type: Object, required: true },
 });
+const emit = defineEmits(['open']);
 
 const MAX_AVATARS = 3;
 
@@ -29,7 +31,14 @@ const hasFooter = computed(() =>
 </script>
 
 <template>
-    <article class="rounded-lg bg-white p-2.5 shadow-sm ring-1 ring-black/5 transition hover:ring-[#AA6ADA]/50">
+    <article
+        role="button"
+        tabindex="0"
+        class="cursor-pointer rounded-lg bg-white p-2.5 shadow-sm ring-1 ring-black/5 transition hover:ring-[#AA6ADA]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#AA6ADA]"
+        @click="emit('open', task)"
+        @keydown.enter.self.prevent="emit('open', task)"
+        @keydown.space.self.prevent="emit('open', task)"
+    >
         <!-- Nhãn -->
         <ul v-if="task.labels.length" class="mb-1.5 flex flex-wrap gap-1">
             <li

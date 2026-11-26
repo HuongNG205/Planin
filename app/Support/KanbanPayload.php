@@ -11,8 +11,8 @@ use App\Models\User;
  * cả lúc dựng trang (BoardService::kanbanProps) lẫn phản hồi của các thao tác nền (TaskListController...),
  * để Vue thay trực tiếp dữ liệu mà không phải ghép/đoán trường.
  *
- * Chỉ đưa vào các trường để HIỂN THỊ: KHÔNG có email người dùng và KHÔNG có mô tả thẻ, vì bảng
- * 'public' xem được bởi mọi người đã đăng nhập. Ngày giờ là chuỗi ISO 8601 (kèm múi giờ).
+ * Chỉ đưa vào các trường để HIỂN THỊ: KHÔNG có email người dùng, và mô tả thẻ chỉ có ở taskDetail()
+ * (không có trong dữ liệu cả bảng), vì bảng 'public' xem được bởi mọi người đã đăng nhập. Ngày giờ là chuỗi ISO 8601 (kèm múi giờ).
  */
 final class KanbanPayload
 {
@@ -37,6 +37,21 @@ final class KanbanPayload
                 ->map(fn (Task $task) => self::task($task))
                 ->values()
                 ->all(),
+        ];
+    }
+
+    /**
+     * Chi tiết thẻ cho modal: cấu trúc thẻ trên bảng + mô tả + cột chứa thẻ. Mô tả có thể dài nên KHÔNG đưa
+     * vào dữ liệu cả bảng; Vue chỉ lấy khi mở thẻ. Phải nạp sẵn quan hệ taskList (xem TaskService::forPayload).
+     */
+    public static function taskDetail(Task $task): array
+    {
+        return self::task($task) + [
+            'description' => $task->description,
+            'list' => [
+                'id' => $task->taskList->getKey(),
+                'name' => $task->taskList->name,
+            ],
         ];
     }
 

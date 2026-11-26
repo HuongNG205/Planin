@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\BoardStarController;
+use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskListController;
 use App\Http\Controllers\WorkspaceController;
 use App\Http\Controllers\WorkspaceMemberController;
@@ -85,6 +86,17 @@ Route::middleware('check.login')->group(function () {
         Route::put('/lists/{list}', 'update')->name('lists.update');
         Route::post('/lists/{list}/archive', 'archive')->name('lists.archive');
         Route::delete('/lists/{list}', 'destroy')->name('lists.destroy');
+    });
+
+    // Thẻ (bước 9): thao tác nền do Vue gọi (JSON/204). Thêm thẻ nằm dưới /lists/{list}, thao tác trên
+    // một thẻ nằm ở /tasks/{task}. Quyền kiểm tra bằng TaskPolicy; {task} chỉ nhận số, thẻ đã xóa mềm => 404.
+    Route::pattern('task', '[0-9]+');
+    Route::controller(TaskController::class)->group(function () {
+        Route::post('/lists/{list}/tasks', 'store')->name('tasks.store');
+        Route::get('/tasks/{task}', 'show')->name('tasks.show');
+        Route::put('/tasks/{task}', 'update')->name('tasks.update');
+        Route::post('/tasks/{task}/archive', 'archive')->name('tasks.archive');
+        Route::delete('/tasks/{task}', 'destroy')->name('tasks.destroy');
     });
 
     // Thành viên workspace (bước 5): phải là thành viên (middleware) + Policy kiểm tra vai trò.
