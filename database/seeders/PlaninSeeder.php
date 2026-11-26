@@ -207,6 +207,8 @@ class PlaninSeeder extends Seeder
         $lastIndex = count($listNames) - 1;
         $titles = collect(self::TASK_TITLES);
 
+        $firstList = null;
+
         foreach ($listNames as $position => $listName) {
             $list = TaskList::factory()->create([
                 'board_id' => $board->id,
@@ -214,6 +216,7 @@ class PlaninSeeder extends Seeder
                 'position' => $position,
             ]);
 
+            $firstList ??= $list;
             $isDone = $position === $lastIndex;
 
             $taskCount = random_int(3, 8);
@@ -258,6 +261,42 @@ class PlaninSeeder extends Seeder
                     $this->log($workspace, $creator, 'moved', "đã chuyển thẻ \"{$task->title}\" sang cột \"{$list->name}\"", ['to_list' => $list->name], $board, $list, $task);
                 }
             }
+        }
+
+        if ($fourLists && $firstList) {
+            $this->seedArchivedItems($board, $workers, $firstList, $lastIndex + 1);
+        }
+    }
+
+    /**
+     * Cột/thẻ ĐÃ LƯU TRỮ (chỉ ở bảng đầu tiên của mỗi workspace). Trang kanban chỉ được hiện cột/thẻ
+     * đang hoạt động, nên tiêu đề mẫu ghi rõ để nhìn thấy ngay nếu chúng lọt ra bảng. Cũng dùng cho
+     * trang lưu trữ cột/thẻ ở bước 13.
+     */
+    private function seedArchivedItems(Board $board, Collection $workers, TaskList $activeList, int $position): void
+    {
+        // 1 thẻ đã lưu trữ nằm ngay trong một cột đang hoạt động
+        Task::factory()->archived()->create([
+            'task_list_id' => $activeList->id,
+            'user_id' => $workers->random()->id,
+            'title' => 'Thẻ đã lưu trữ (không hiện trên bảng)',
+            'position' => 99,
+        ]);
+
+        // 1 cột đã lưu trữ kèm 2 thẻ (thẻ chưa lưu trữ nhưng thuộc cột đã lưu trữ)
+        $archivedList = TaskList::factory()->archived()->create([
+            'board_id' => $board->id,
+            'name' => 'Cột đã lưu trữ (không hiện trên bảng)',
+            'position' => $position,
+        ]);
+
+        foreach ([0, 1] as $t) {
+            Task::factory()->create([
+                'task_list_id' => $archivedList->id,
+                'user_id' => $workers->random()->id,
+                'title' => 'Thẻ trong cột đã lưu trữ',
+                'position' => $t,
+            ]);
         }
     }
 

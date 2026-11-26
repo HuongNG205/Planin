@@ -8,4 +8,5 @@ import { mountPages } from './mount';
  */
 mountPages({
     '#vue-mount-test': () => import('./pages/MountTest.vue'),
+    '#board-app': () => import('./pages/BoardPage.vue'),
 });

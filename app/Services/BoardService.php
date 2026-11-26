@@ -3,7 +3,10 @@
 namespace App\Services;
 
 use App\Enums\BoardVisibility;
+use App\Enums\WorkspaceRole;
 use App\Models\Board;
+use App\Models\Task;
+use App\Models\TaskList;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\BoardBackground;
@@ -92,6 +95,94 @@ class BoardService
     {
         // Builder của model dùng SoftDeletes => đây là xóa mềm.
         Board::where('workspace_id', $workspace->getKey())->delete();
+    }
+
+    // ------------------------------------------------------------------
+    // Trang kanban (bước 7)
+    // ------------------------------------------------------------------
+
+    /**
+     * Nạp cột + thẻ ĐANG HOẠT ĐỘNG của bảng (theo position) cho trang kanban.
+     *
+     * Chỉ dùng activeTaskLists()/activeTasks(): taskLists()/tasks() gồm cả cột/thẻ đã lưu trữ.
+     * Phải eager load đủ vì Model::preventLazyLoading đang bật ngoài production. Số truy vấn cố định
+     * (cột, thẻ kèm đếm bình luận/tệp, nhãn, người được giao) dù bảng có bao nhiêu thẻ.
+     */
+    public function loadKanban(Board $board): Board
+    {
+        return $board->load([
+            'activeTaskLists.activeTasks' => fn ($tasks) => $tasks
+                ->with(['labels', 'assignees'])
+                ->withCount(['comments', 'attachments']),
+        ]);
+    }
+
+    /**
+     * Dữ liệu truyền xuống Vue (BoardPage) qua <x-vue-mount>. Gọi SAU loadKanban().
+     *
+     * Chỉ đưa vào các trường để hiển thị: KHÔNG có email người dùng và KHÔNG có mô tả thẻ, vì bảng
+     * 'public' xem được bởi mọi người đã đăng nhập. Ngày giờ là chuỗi ISO 8601 (kèm múi giờ).
+     *
+     * @param  ?WorkspaceRole  $role  vai trò của người xem trong workspace; null = không phải thành viên
+     *                                (khách xem bảng public)
+     * @return array<string, mixed>
+     */
+    public function kanbanProps(Board $board, ?WorkspaceRole $role): array
+    {
+        return [
+            'board' => [
+                'id' => $board->getKey(),
+                'name' => $board->name,
+                'archived' => $board->isArchived(),
+            ],
+            'role' => $role?->value,
+            // Chỉ member trở lên mới sửa được cột/thẻ, và không ai sửa được khi bảng đã lưu trữ.
+            // Viewer và khách xem bảng public (role = null) chỉ đọc => Vue ẩn các nút sửa.
+            'canEdit' => ! $board->isArchived() && ($role?->canEditCards() ?? false),
+            'lists' => $board->activeTaskLists
+                ->map(fn (TaskList $list) => [
+                    'id' => $list->getKey(),
+                    'name' => $list->name,
+                    'position' => $list->position,
+                    'tasks' => $list->activeTasks
+                        ->map(fn (Task $task) => $this->kanbanTask($task))
+                        ->values()
+                        ->all(),
+                ])
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function kanbanTask(Task $task): array
+    {
+        return [
+            'id' => $task->getKey(),
+            'title' => $task->title,
+            'position' => $task->position,
+            'due_date' => $task->due_date?->toIso8601String(),
+            'completed_at' => $task->completed_at?->toIso8601String(),
+            'labels' => $task->labels
+                ->map(fn ($label) => [
+                    'id' => $label->getKey(),
+                    'name' => $label->name,
+                    'color' => $label->color,
+                ])
+                ->values()
+                ->all(),
+            'assignees' => $task->assignees
+                ->map(fn (User $user) => [
+                    'id' => $user->getKey(),
+                    'name' => $user->name,
+                    'initials' => $user->initials,
+                    'avatar_url' => $user->avatar_url,
+                ])
+                ->values()
+                ->all(),
+            'comments_count' => (int) $task->comments_count,
+            'attachments_count' => (int) $task->attachments_count,
+        ];
     }
 
     // ------------------------------------------------------------------
