@@ -15,6 +15,9 @@ use App\Models\User;
  *   create  : thêm thẻ vào cột    (gọi can('create', [Task::class, $list])) - cột phải còn hoạt động
  *   update  : sửa thẻ             - thẻ và cột chứa nó phải còn hoạt động
  *   archive : lưu trữ thẻ         - như update
+ *   move    : kéo thẻ sang cột $target (gọi can('move', [$task, $target])) - phải sửa được thẻ VÀ sửa được bảng
+ *             của cột đích (TaskPolicy@update chỉ kiểm tra cột hiện tại của thẻ), cột đích chưa lưu trữ.
+ *             Việc cột đích cùng bảng với thẻ do ReorderService kiểm tra (422).
  *   delete  : xóa thẻ             - cả thẻ đang hoạt động lẫn đã lưu trữ (xóa từ trang lưu trữ, bước 13.3)
  *
  * Thẻ/cột/bảng đã xóa mềm không còn tồn tại với route binding (404); nếu cột hoặc bảng bị xóa sau khi
@@ -42,6 +45,13 @@ class TaskPolicy
     public function archive(User $user, Task $task): bool
     {
         return $this->update($user, $task);
+    }
+
+    public function move(User $user, Task $task, TaskList $target): bool
+    {
+        return $this->update($user, $task)
+            && ! $target->isArchived()
+            && $this->editCards($user, $this->board($target));
     }
 
     public function delete(User $user, Task $task): bool

@@ -6,6 +6,8 @@ use App\Http\Controllers\BoardController;
 use App\Http\Controllers\BoardStarController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskListController;
+use App\Http\Controllers\TaskListReorderController;
+use App\Http\Controllers\TaskMoveController;
 use App\Http\Controllers\WorkspaceController;
 use App\Http\Controllers\WorkspaceMemberController;
 use Illuminate\Support\Facades\Route;
@@ -87,6 +89,8 @@ Route::middleware('check.login')->group(function () {
         Route::post('/lists/{list}/archive', 'archive')->name('lists.archive');
         Route::delete('/lists/{list}', 'destroy')->name('lists.destroy');
     });
+    // Kéo thả cột (bước 10): đổi thứ tự cột trong bảng. Body: position (chỉ số 0-based trong các cột đang hiển thị).
+    Route::patch('/lists/{list}/move', TaskListReorderController::class)->name('lists.move');
 
     // Thẻ (bước 9): thao tác nền do Vue gọi (JSON/204). Thêm thẻ nằm dưới /lists/{list}, thao tác trên
     // một thẻ nằm ở /tasks/{task}. Quyền kiểm tra bằng TaskPolicy; {task} chỉ nhận số, thẻ đã xóa mềm => 404.
@@ -98,6 +102,9 @@ Route::middleware('check.login')->group(function () {
         Route::post('/tasks/{task}/archive', 'archive')->name('tasks.archive');
         Route::delete('/tasks/{task}', 'destroy')->name('tasks.destroy');
     });
+    // Kéo thả thẻ (bước 10): đổi thứ tự trong cột hoặc chuyển sang cột khác cùng bảng.
+    // Body: to_list_id, position (chỉ số 0-based trong các thẻ đang hiển thị của cột đích).
+    Route::patch('/tasks/{task}/move', TaskMoveController::class)->name('tasks.move');
 
     // Thành viên workspace (bước 5): phải là thành viên (middleware) + Policy kiểm tra vai trò.
     Route::pattern('member', '[0-9]+');
