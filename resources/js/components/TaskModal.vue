@@ -7,6 +7,8 @@ import { dueInfo, toInputValue } from '@/lib/dates';
 // `task` là thẻ trên bảng (reactive): khi thẻ bị lưu trữ/xóa, BoardPage tự đóng modal.
 const props = defineProps({
     task: { type: Object, required: true },
+    // Tên cột hiện tại do BoardPage tính từ columns (đúng sau kéo thả); rỗng thì dùng tên lấy lúc mở thẻ.
+    columnName: { type: String, default: '' },
 });
 const emit = defineEmits(['close']);
 
@@ -211,7 +213,7 @@ onBeforeUnmount(() => {
                             {{ task.title }}
                         </h2>
                         <p class="px-2 text-sm text-gray-500">
-                            trong cột <span class="font-medium text-gray-700">{{ listName || '...' }}</span>
+                            trong cột <span class="font-medium text-gray-700">{{ columnName || listName || '...' }}</span>
                         </p>
                     </div>
                     <button

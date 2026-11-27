@@ -1,8 +1,10 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, provide, ref } from 'vue';
+import draggable from 'vuedraggable';
 import AddListForm from '@/components/AddListForm.vue';
 import ListColumn from '@/components/ListColumn.vue';
 import TaskModal from '@/components/TaskModal.vue';
+import { useBoardDrag } from '@/composables/useBoardDrag';
 import { useBoardLists } from '@/composables/useBoardLists';
 import { useBoardTasks } from '@/composables/useBoardTasks';
 
@@ -28,6 +30,7 @@ const { createTask, loadTask, updateTask, archiveTask, deleteTask } = useBoardTa
 //   const permissions = inject('boardPermissions');  // permissions.canEdit (ref)
 //   const lists = inject('boardLists');              // createList, renameList, archiveList, deleteList
 //   const tasks = inject('boardTasks');              // createTask, loadTask, updateTask, archiveTask, deleteTask
+//   const drag = inject('boardDrag');               // kéo thả (bước 10): moving (ref), start, setTasks, taskChanged
 //   const openTask = inject('openTask');             // openTask(taskId) => mở modal chi tiết thẻ
 //   const notify = inject('notify');                 // notify('Nội dung lỗi') => thông báo nổi
 provide('boardPermissions', {
@@ -40,14 +43,17 @@ provide('boardTasks', { createTask, loadTask, updateTask, archiveTask, deleteTas
 // Thẻ đang mở trong modal. Tìm theo id trong columns: thẻ bị lưu trữ/xóa (kể cả cả cột bị gỡ) thì
 // activeTask thành null và modal tự đóng.
 const openTaskId = ref(null);
-const activeTask = computed(() => {
+const activeLocation = computed(() => {
     if (openTaskId.value === null) return null;
     for (const list of columns.value) {
         const task = list.tasks.find((item) => item.id === openTaskId.value);
-        if (task) return task;
+        if (task) return { list, task };
     }
     return null;
 });
+const activeTask = computed(() => activeLocation.value?.task ?? null);
+// Tên cột hiện tại của thẻ đang mở: lấy từ columns nên luôn đúng sau khi kéo thả (kể cả khi rollback).
+const activeListName = computed(() => activeLocation.value?.list.name ?? '');
 
 provide('openTask', (taskId) => {
     openTaskId.value = taskId;
@@ -66,32 +72,71 @@ function notify(message) {
 provide('notify', notify);
 onBeforeUnmount(() => clearTimeout(toastTimer));
 
+// Kéo thả cột/thẻ (bước 10): optimistic update + rollback khi server từ chối. Đặt SAU notify vì cần gọi nó.
+const drag = useBoardDrag(columns, notify);
+provide('boardDrag', drag);
+const { moving } = drag;
+// Chỉ người sửa được bảng mới kéo; đang chờ server xác nhận một lần kéo thì tạm khóa kéo tiếp.
+const dragDisabled = computed(() => !props.canEdit || moving.value);
+
 // Thêm cột xong thì cuộn sang phải để thấy cột mới.
 const scroller = ref(null);
 
 async function scrollToEnd() {
     await nextTick();
-    scroller.value?.scrollTo?.({ left: scroller.value.scrollWidth, behavior: 'smooth' });
+    // scroller là component vuedraggable: phần tử cuộn thật là $el.
+    const el = scroller.value?.$el;
+    el?.scrollTo?.({ left: el.scrollWidth, behavior: 'smooth' });
 }
 </script>
 
 <template>
-    <div
-        ref="scroller"
-        class="flex h-full items-start gap-3 overflow-x-auto overflow-y-hidden p-4 sm:p-6 [scrollbar-width:thin]"
-    >
-        <ListColumn v-for="list in columns" :key="list.id" :list="list" />
-
-        <p
-            v-if="!columns.length"
-            class="rounded-lg bg-white/80 px-4 py-3 text-sm text-gray-700 shadow-2xs backdrop-blur-sm"
+    <div class="h-full">
+        <!-- Kéo cột: chỉ bắt đầu từ vùng .column-handle (tiêu đề cột). AddListForm và dòng "chưa có cột" nằm ở
+             slot footer nên không phải phần tử kéo được. Nhóm "lists" khác nhóm "tasks" của thẻ. -->
+        <draggable
+            ref="scroller"
+            tag="div"
+            item-key="id"
+            group="lists"
+            handle=".column-handle"
+            filter=".no-drag"
+            :prevent-on-filter="false"
+            :model-value="columns"
+            :disabled="dragDisabled"
+            :animation="150"
+            :delay="150"
+            :delay-on-touch-only="true"
+            ghost-class="planin-ghost"
+            chosen-class="planin-chosen"
+            class="flex h-full items-start gap-3 overflow-x-auto overflow-y-hidden p-4 sm:p-6 [scrollbar-width:thin]"
+            @start="drag.start"
+            @update:model-value="drag.setColumns"
+            @change="drag.listChanged"
         >
-            Bảng này chưa có cột nào.
-        </p>
+            <template #item="{ element }">
+                <ListColumn :list="element" />
+            </template>
 
-        <AddListForm v-if="canEdit" @added="scrollToEnd" />
+            <template #footer>
+                <p
+                    v-if="!columns.length"
+                    class="rounded-lg bg-white/80 px-4 py-3 text-sm text-gray-700 shadow-2xs backdrop-blur-sm"
+                >
+                    Bảng này chưa có cột nào.
+                </p>
 
-        <TaskModal v-if="activeTask" :key="activeTask.id" :task="activeTask" @close="openTaskId = null" />
+                <AddListForm v-if="canEdit" @added="scrollToEnd" />
+            </template>
+        </draggable>
+
+        <TaskModal
+            v-if="activeTask"
+            :key="activeTask.id"
+            :task="activeTask"
+            :column-name="activeListName"
+            @close="openTaskId = null"
+        />
 
         <div
             v-if="toast"
@@ -105,3 +150,14 @@ async function scrollToEnd() {
         </div>
     </div>
 </template>
+
+<style>
+/* Kéo thả (bước 10): lớp của SortableJS gắn lên phần tử đang kéo; dùng chung cho cột và thẻ. */
+.planin-ghost {
+    opacity: 0.4;
+}
+
+.planin-chosen {
+    cursor: grabbing;
+}
+</style>

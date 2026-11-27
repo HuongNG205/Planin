@@ -1,11 +1,14 @@
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import draggable from 'vuedraggable';
 import AddCardForm from '@/components/AddCardForm.vue';
 import TaskCard from '@/components/TaskCard.vue';
 
 // Một cột: tiêu đề + số thẻ + danh sách thẻ (cuộn dọc trong cột).
 // Người có quyền sửa (canEdit) thêm được: bấm tên để đổi tại chỗ, menu "..." để lưu trữ/xóa, ô "Thêm thẻ" cuối cột.
 // Bấm một thẻ để mở modal chi tiết (ai xem được bảng cũng mở được).
+// Kéo thả (bước 10): kéo thẻ để đổi thứ tự/chuyển cột (danh sách thẻ luôn được vẽ, kể cả cột rỗng, để có chỗ thả);
+// kéo tiêu đề cột để đổi thứ tự cột. Logic dữ liệu nằm ở useBoardDrag (inject 'boardDrag').
 const props = defineProps({
     list: { type: Object, required: true },
 });
@@ -17,8 +20,13 @@ const lists = inject('boardLists', null);
 const notify = inject('notify', () => {});
 const taskActions = inject('boardTasks', null);
 const openTask = inject('openTask', () => {});
+const drag = inject('boardDrag', null);
+const moving = drag ? drag.moving : ref(false);
+// Chỉ người sửa được bảng mới kéo; đang chờ server xác nhận một lần kéo thì tạm khóa.
+const dragDisabled = computed(() => !drag || !canEdit.value || moving.value);
 
 // ---------- Thẻ ----------
+// Vùng cuộn dọc của cột (phần tử thật, không phải component kéo thả).
 const cardList = ref(null);
 
 // Thêm thẻ xong thì cuộn xuống cuối cột để thấy thẻ mới.
@@ -131,7 +139,10 @@ const remove = () => runMenuAction(lists.deleteList);
         class="flex max-h-full w-72 shrink-0 flex-col rounded-xl bg-[#F1F2F4] shadow-sm"
         :aria-label="`Cột ${list.name}`"
     >
-        <header class="flex items-center justify-between gap-2 px-2 pt-3 pb-2">
+        <header
+            class="column-handle flex items-center justify-between gap-2 px-2 pt-3 pb-2"
+            :class="{ 'cursor-grab': !dragDisabled }"
+        >
             <h2 class="min-w-0 flex-1 text-sm font-bold text-[#091E42]">
                 <input
                     v-if="editing"
@@ -140,7 +151,7 @@ const remove = () => runMenuAction(lists.deleteList);
                     type="text"
                     maxlength="150"
                     aria-label="Tên cột"
-                    class="w-full rounded border-2 border-[#AA6ADA] bg-white px-1.5 py-0.5 text-sm font-bold outline-none"
+                    class="no-drag w-full rounded border-2 border-[#AA6ADA] bg-white px-1.5 py-0.5 text-sm font-bold outline-none"
                     @keydown.enter="onTitleEnter"
                     @keydown.esc.prevent="cancelEdit"
                     @blur="commitEdit"
@@ -165,7 +176,7 @@ const remove = () => runMenuAction(lists.deleteList);
                 {{ list.tasks.length }}
             </span>
 
-            <div v-if="canEdit && lists" ref="menuRoot" class="relative shrink-0">
+            <div v-if="canEdit && lists" ref="menuRoot" class="no-drag relative shrink-0">
                 <button
                     ref="menuButton"
                     type="button"
@@ -229,16 +240,41 @@ const remove = () => runMenuAction(lists.deleteList);
             </div>
         </header>
 
-        <ul
-            v-if="list.tasks.length"
-            ref="cardList"
-            class="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2 [scrollbar-width:thin]"
-        >
-            <li v-for="task in list.tasks" :key="task.id">
-                <TaskCard :task="task" @open="openTask(task.id)" />
-            </li>
-        </ul>
-        <p v-else class="px-3 pb-3 text-xs text-gray-400">Chưa có thẻ nào</p>
+        <!-- Vùng cuộn dọc. Danh sách thẻ luôn có mặt (min-h) để cột rỗng vẫn thả được; dòng "Chưa có thẻ nào"
+             nằm đè lên, không bắt chuột. Nhóm "tasks" cho phép kéo thẻ qua lại giữa các cột. -->
+        <div ref="cardList" class="min-h-0 flex-1 overflow-y-auto px-2 pb-2 [scrollbar-width:thin]">
+            <div class="relative">
+                <p
+                    v-if="!list.tasks.length"
+                    class="pointer-events-none absolute inset-x-1 top-1 text-xs text-gray-400"
+                >
+                    Chưa có thẻ nào
+                </p>
+
+                <draggable
+                    tag="ul"
+                    item-key="id"
+                    group="tasks"
+                    class="min-h-10 space-y-2"
+                    :model-value="list.tasks"
+                    :disabled="dragDisabled"
+                    :animation="150"
+                    :delay="150"
+                    :delay-on-touch-only="true"
+                    ghost-class="planin-ghost"
+                    chosen-class="planin-chosen"
+                    @start="drag?.start()"
+                    @update:model-value="(tasks) => drag?.setTasks(list.id, tasks)"
+                    @change="(event) => drag?.taskChanged(list.id, event)"
+                >
+                    <template #item="{ element }">
+                        <li>
+                            <TaskCard :task="element" @open="openTask(element.id)" />
+                        </li>
+                    </template>
+                </draggable>
+            </div>
+        </div>
 
         <AddCardForm v-if="canEdit && taskActions" :list="list" @added="scrollCardsToEnd" />
     </section>
